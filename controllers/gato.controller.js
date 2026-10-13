@@ -34,6 +34,12 @@ export const guardarAuditoria = async ({
   req,
 }) => {
   try {
+    if (!db || typeof db.collection !== "function") {
+      return;
+    }
+
+    req = req || {};
+
     await db.collection("auditoria_gatos").add({
       accion,
       gatoId: gatoId || null,
@@ -46,7 +52,6 @@ export const guardarAuditoria = async ({
       valoresNuevos,
     });
   } catch (err) {
-    // No rompemos la operación principal si falla el log
     console.error("Error al guardar auditoría:", err.message);
   }
 };

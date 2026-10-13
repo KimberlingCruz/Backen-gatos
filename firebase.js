@@ -7,13 +7,28 @@ const serviceAccount = {
   privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
 };
 
-// Evita inicializar varias veces
+let db = null;
+
 if (!getApps().length) {
-  initializeApp({
-    credential: cert(serviceAccount),
-  });
+  try {
+    if (serviceAccount.projectId && serviceAccount.clientEmail && serviceAccount.privateKey) {
+      initializeApp({
+        credential: cert(serviceAccount),
+      });
+    } else {
+      initializeApp({
+        projectId: serviceAccount.projectId || "demo-project",
+      });
+    }
+  } catch (error) {
+    console.warn("Firebase no pudo inicializarse; las operaciones de base de datos quedarán deshabilitadas.", error.message);
+  }
 }
 
-const db = getFirestore();
+try {
+  db = getFirestore();
+} catch (error) {
+  console.warn("Firestore no está disponible en este entorno.", error.message);
+}
 
 export default db;

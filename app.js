@@ -1,13 +1,13 @@
 import express from "express";
-import cors from "cors";  //Para que el frontend pueda llamar
+import cors from "cors";
 import gatoRoutes from "./routes/gato.routes.js";
 import climaRoutes from "./routes/clima.routes.js";
 import rateLimit from "express-rate-limit";
-import db from "./firebase.js";  // Para el registro de la bitácora
+import db from "./firebase.js";
+import { capturarInfoSolicitud } from "./middlewares/auditoria.js";
 
-// Rate limit para gatos
 const limiterGatos = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minuto
+  windowMs: 1 * 60 * 1000,
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
@@ -16,14 +16,16 @@ const limiterGatos = rateLimit({
   },
   handler: async (req, res, next, options) => {
     try {
-      await db.collection("auditoria_gatos").add({
-        accion: "rate_limit_bloqueado",
-        fecha: new Date().toISOString(),
-        ip: req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip,
-        userAgent: req.headers["user-agent"],
-        ruta: req.originalUrl,
-        metodo: req.method,
-      });
+      if (db && typeof db.collection === "function") {
+        await db.collection("auditoria_gatos").add({
+          accion: "rate_limit_bloqueado",
+          fecha: new Date().toISOString(),
+          ip: req.auditoria?.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip,
+          userAgent: req.auditoria?.userAgent || req.headers["user-agent"],
+          ruta: req.auditoria?.ruta || req.originalUrl,
+          metodo: req.auditoria?.metodo || req.method,
+        });
+      }
     } catch (e) {}
     res.status(options.statusCode).json(options.message);
   },
@@ -31,18 +33,15 @@ const limiterGatos = rateLimit({
 
 const app = express();
 
-// Middlewares
-app.use(cors());  //Permite peticiones desde cualquier origen
+app.use(cors());
 app.use(express.json());
-app.use(limiterGatos);
+app.use(capturarInfoSolicitud);
 
-// Rutas
+app.use("/gato", limiterGatos);
+app.use("/gatos", limiterGatos);
 app.use(gatoRoutes);
 app.use(climaRoutes);
-app.use("/gato", limiterGatos);
-app.use("/gatos", limiterGatos)
 
-// 404
 app.use((req, res) => {
   res.status(404).json({ mensaje: "Ruta no registrada." });
 });
