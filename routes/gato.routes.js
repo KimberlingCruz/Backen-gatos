@@ -12,9 +12,12 @@ const upload = multer({
 });
 
 router.post("/gato", upload.single("imagen"), registrarGato);
+// routes/gato.routes.js
+import { capturarInfoSolicitud } from "../middlewares/auditoria.js";
 
 router.put(
   "/gato/:id",
+  capturarInfoSolicitud,
   upload.single("imagen"),
   actualizarGato
 )
